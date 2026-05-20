@@ -1,0 +1,278 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+  <meta name="apple-mobile-web-app-title" content="センター計算機" />
+  <title>センター計算機</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@300;400;500;700&display=swap" rel="stylesheet" />
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background: #f7f4ef;
+      font-family: 'Noto Sans JP', sans-serif;
+      min-height: 100vh;
+      display: flex;
+      justify-content: center;
+      padding: 32px 20px;
+      -webkit-tap-highlight-color: transparent;
+    }
+    .container { width: 100%; max-width: 440px; }
+    h1 { font-size: 24px; font-weight: 700; color: #2c2820; text-align: center; margin-bottom: 28px; }
+    .svg-wrap { margin-bottom: 20px; }
+    .svg-wrap svg { display: block; width: 100%; }
+    .card {
+      background: #fff;
+      border-radius: 20px;
+      padding: 24px;
+      box-shadow: 0 8px 40px rgba(0,0,0,0.07);
+      margin-bottom: 16px;
+    }
+    .row { display: flex; gap: 12px; margin-bottom: 16px; }
+    .col { flex: 1; }
+    label { display: block; font-size: 12px; color: #7a7060; margin-bottom: 6px; }
+    label span { color: #c0b8a8; font-size: 10px; }
+    input[type=number] {
+      width: 100%;
+      padding: 10px 14px;
+      font-size: 18px;
+      font-family: 'Noto Sans JP', sans-serif;
+      border: 1.5px solid #e8e2d8;
+      border-radius: 12px;
+      outline: none;
+      background: #faf8f4;
+      color: #2c2820;
+    }
+    input[type=number]:focus { border-color: #8c7a5e; }
+    .divider { height: 1px; background: #f0ece4; margin-bottom: 20px; }
+    .slider-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+    .slider-label { font-size: 12px; color: #7a7060; }
+    .slider-right { display: flex; align-items: center; gap: 10px; }
+    .slider-value { font-size: 20px; color: #2c2820; }
+    .slider-value span { font-size: 11px; color: #b0a898; margin-left: 3px; }
+    .lock-btn {
+      width: 32px; height: 32px;
+      border-radius: 8px;
+      border: 1.5px solid #e0d8cc;
+      background: #faf8f4;
+      cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      transition: all 0.2s;
+      flex-shrink: 0;
+    }
+    .lock-btn.locked { border-color: #8c7a5e; background: #8c7a5e; }
+    input[type=range] {
+      width: 100%;
+      accent-color: #8c7a5e;
+      cursor: pointer;
+    }
+    input[type=range]:disabled { opacity: 0.5; cursor: not-allowed; accent-color: #c0b8a8; }
+    .tick-wrap { position: relative; margin-top: 4px; height: 16px; }
+    .tick-ends { display: flex; justify-content: space-between; font-size: 10px; color: #c0b8a8; }
+    .tick { position: absolute; top: 0; transform: translateX(-50%); display: flex; flex-direction: column; align-items: center; pointer-events: none; }
+    .tick-mark { width: 1.5px; height: 5px; background: #c0b8a8; opacity: 0.7; }
+    .tick-mark.active { width: 2px; height: 8px; background: #8c7a5e; opacity: 1; }
+    .lock-msg { font-size: 10px; color: #8c7a5e; margin-top: 6px; }
+  </style>
+</head>
+<body>
+<div class="container">
+  <h1>センター計算機</h1>
+
+  <div class="svg-wrap">
+    <svg id="diagram" viewBox="0 0 380 430"></svg>
+  </div>
+
+  <div class="card">
+    <div class="row">
+      <div class="col">
+        <label>高さ(H) <span>mm</span></label>
+        <input type="number" id="artH" value="600" inputmode="numeric" />
+      </div>
+      <div class="col">
+        <label>幅(W) <span>mm（任意）</span></label>
+        <input type="number" id="artW" value="450" inputmode="numeric" />
+      </div>
+    </div>
+
+    <div class="divider"></div>
+
+    <div>
+      <div class="slider-header">
+        <span class="slider-label">センター</span>
+        <div class="slider-right">
+          <span class="slider-value"><span id="eyeVal">1450</span><span>mm</span></span>
+          <button class="lock-btn" id="lockBtn" onclick="toggleLock()">
+            <svg id="lockIcon" width="14" height="16" viewBox="0 0 14 16" fill="none"></svg>
+          </button>
+        </div>
+      </div>
+      <input type="range" id="slider" min="1300" max="1600" value="1450" oninput="onSlider(this.value)" />
+      <div class="tick-wrap">
+        <div class="tick-ends"><span>1300</span><span>1600</span></div>
+        <div id="ticks"></div>
+      </div>
+      <div class="lock-msg" id="lockMsg" style="display:none">🔒 ロック中 — タップして解除</div>
+    </div>
+  </div>
+</div>
+
+<script>
+  const WALL_W = 380;
+  const DRAW_H = 400;
+  const MARGIN_RIGHT = 90;
+  const REAL_RANGE = 2400;
+  const BG = "#f7f4ef";
+  const SNAP_POINTS = [1300,1350,1400,1450,1500,1550,1600];
+  const SNAP_RANGE = 8;
+
+  let eyeLevel = 1450;
+  let locked = false;
+
+  function toY(mm) { return DRAW_H - (mm / REAL_RANGE) * DRAW_H; }
+
+  function drawTicks() {
+    const wrap = document.getElementById('ticks');
+    wrap.innerHTML = '';
+    SNAP_POINTS.forEach(p => {
+      const pct = (p - 1300) / 300 * 100;
+      const isActive = eyeLevel === p;
+      const d = document.createElement('div');
+      d.className = 'tick';
+      d.style.left = pct + '%';
+      const mark = document.createElement('div');
+      mark.className = 'tick-mark' + (isActive ? ' active' : '');
+      d.appendChild(mark);
+      wrap.appendChild(d);
+    });
+  }
+
+  function drawLockIcon() {
+    const svg = document.getElementById('lockIcon');
+    if (locked) {
+      svg.innerHTML = `
+        <rect x="1" y="7" width="12" height="8" rx="2" fill="#f7f4ef"/>
+        <path d="M4 7V5a3 3 0 016 0v2" stroke="#f7f4ef" stroke-width="1.8" stroke-linecap="round" fill="none"/>
+        <circle cx="7" cy="11" r="1.2" fill="#8c7a5e"/>`;
+    } else {
+      svg.innerHTML = `
+        <rect x="1" y="7" width="12" height="8" rx="2" fill="#c0b8a8"/>
+        <path d="M4 7V5a3 3 0 016 0" stroke="#c0b8a8" stroke-width="1.8" stroke-linecap="round" fill="none"/>
+        <circle cx="7" cy="11" r="1.2" fill="#f7f4ef"/>`;
+    }
+  }
+
+  function toggleLock() {
+    locked = !locked;
+    const btn = document.getElementById('lockBtn');
+    const slider = document.getElementById('slider');
+    const msg = document.getElementById('lockMsg');
+    btn.classList.toggle('locked', locked);
+    slider.disabled = locked;
+    msg.style.display = locked ? 'block' : 'none';
+    drawLockIcon();
+  }
+
+  function onSlider(val) {
+    if (locked) return;
+    val = parseInt(val);
+    const snapped = SNAP_POINTS.find(p => Math.abs(val - p) <= SNAP_RANGE);
+    eyeLevel = snapped !== undefined ? snapped : val;
+    document.getElementById('slider').value = eyeLevel;
+    document.getElementById('eyeVal').textContent = eyeLevel;
+    drawTicks();
+    drawDiagram();
+  }
+
+  function drawDiagram() {
+    const h = parseFloat(document.getElementById('artH').value) || 600;
+    const w = parseFloat(document.getElementById('artW').value) || 450;
+
+    const topHeight = eyeLevel + h / 2;
+    const bottomHeight = eyeLevel - h / 2;
+
+    const artScale = DRAW_H / REAL_RANGE;
+    const artHeightPx = h * artScale;
+    const artWidthPx = Math.min(w * artScale, WALL_W - MARGIN_RIGHT - 60);
+    const artLeft = (WALL_W - artWidthPx) / 2;
+    const artTopY = toY(topHeight);
+    const artBotY = toY(bottomHeight);
+    const eyeY = toY(eyeLevel);
+
+    const ns = 'http://www.w3.org/2000/svg';
+    const svg = document.getElementById('diagram');
+    svg.innerHTML = '';
+    svg.setAttribute('viewBox', `0 0 ${WALL_W} ${DRAW_H + 30}`);
+
+    function el(tag, attrs) {
+      const e = document.createElementNS(ns, tag);
+      Object.entries(attrs).forEach(([k,v]) => e.setAttribute(k,v));
+      return e;
+    }
+    function txt(content, attrs) {
+      const e = document.createElementNS(ns, 'text');
+      Object.entries(attrs).forEach(([k,v]) => e.setAttribute(k,v));
+      e.textContent = content;
+      return e;
+    }
+
+    // 壁
+    svg.appendChild(el('rect', {x:0,y:0,width:WALL_W,height:DRAW_H,fill:BG}));
+
+    // 床（線のみ）
+    svg.appendChild(el('line', {x1:0,y1:DRAW_H,x2:WALL_W,y2:DRAW_H,stroke:'#8c7a5e','stroke-width':3}));
+
+    // 額縁
+    if (artHeightPx > 4 && artWidthPx > 4) {
+      svg.appendChild(el('rect', {x:artLeft+2,y:artTopY+2,width:artWidthPx,height:artHeightPx,fill:'rgba(0,0,0,0.06)'}));
+      svg.appendChild(el('rect', {x:artLeft,y:artTopY,width:artWidthPx,height:artHeightPx,fill:'#c8b89a',stroke:'#8c7a5e','stroke-width':2.5}));
+      svg.appendChild(el('rect', {x:artLeft+6,y:artTopY+6,width:artWidthPx-12,height:artHeightPx-12,fill:BG}));
+    }
+
+    // 目線ライン
+    svg.appendChild(el('line', {x1:0,y1:eyeY,x2:artLeft,y2:eyeY,stroke:'#c0392b','stroke-width':1.5,'stroke-dasharray':'6,4',opacity:0.7}));
+    svg.appendChild(txt(eyeLevel, {x:4,y:eyeY-4,'font-size':11,fill:'#c0392b','font-family':'Noto Sans JP, sans-serif','text-anchor':'start','font-weight':'bold',opacity:0.9}));
+
+    // 作品幅（下）
+    if (artWidthPx > 20) {
+      svg.appendChild(el('line', {x1:artLeft,y1:artBotY+8,x2:artLeft+artWidthPx,y2:artBotY+8,stroke:'#a89070','stroke-width':1,opacity:0.5}));
+      svg.appendChild(el('line', {x1:artLeft,y1:artBotY+4,x2:artLeft,y2:artBotY+12,stroke:'#a89070','stroke-width':1,opacity:0.5}));
+      svg.appendChild(el('line', {x1:artLeft+artWidthPx,y1:artBotY+4,x2:artLeft+artWidthPx,y2:artBotY+12,stroke:'#a89070','stroke-width':1,opacity:0.5}));
+      svg.appendChild(txt(Math.round(w), {x:artLeft+artWidthPx/2,y:artBotY+22,'font-size':9,fill:'#8c7a5e','font-family':'Noto Sans JP, sans-serif','text-anchor':'middle'}));
+    }
+
+    // 右側寸法線
+    if (artTopY < DRAW_H - 4) {
+      svg.appendChild(el('line', {x1:WALL_W-16,y1:artTopY,x2:WALL_W-16,y2:DRAW_H,stroke:'#8c7a5e','stroke-width':1.2,opacity:0.6}));
+      svg.appendChild(el('line', {x1:WALL_W-23,y1:artTopY,x2:WALL_W-9,y2:artTopY,stroke:'#8c7a5e','stroke-width':1.2,opacity:0.6}));
+      svg.appendChild(el('line', {x1:WALL_W-23,y1:DRAW_H,x2:WALL_W-9,y2:DRAW_H,stroke:'#8c7a5e','stroke-width':1.2,opacity:0.6}));
+      svg.appendChild(txt('作品上部', {x:WALL_W-42,y:artTopY-10,'font-size':9,fill:'#8c7a5e','font-family':'Noto Sans JP, sans-serif','text-anchor':'middle'}));
+      svg.appendChild(txt(Math.round(topHeight), {x:WALL_W-42,y:artTopY+3,'font-size':11,fill:'#5a4a30','font-family':'Noto Sans JP, sans-serif','font-weight':'bold','text-anchor':'middle'}));
+      svg.appendChild(el('line', {x1:WALL_W-23,y1:artBotY,x2:WALL_W-9,y2:artBotY,stroke:'#8c7a5e','stroke-width':1.2,opacity:0.6}));
+      svg.appendChild(txt('作品下部', {x:WALL_W-42,y:artBotY+14,'font-size':9,fill:'#8c7a5e','font-family':'Noto Sans JP, sans-serif','text-anchor':'middle'}));
+      svg.appendChild(txt(Math.round(bottomHeight), {x:WALL_W-42,y:artBotY+27,'font-size':11,fill:'#5a4a30','font-family':'Noto Sans JP, sans-serif','font-weight':'bold','text-anchor':'middle'}));
+    }
+
+    // 作品高さ（右横）
+    if (artHeightPx > 20) {
+      svg.appendChild(el('line', {x1:artLeft+artWidthPx+6,y1:artTopY,x2:artLeft+artWidthPx+6,y2:artBotY,stroke:'#a89070','stroke-width':1,opacity:0.5}));
+      svg.appendChild(el('line', {x1:artLeft+artWidthPx+2,y1:artTopY,x2:artLeft+artWidthPx+10,y2:artTopY,stroke:'#a89070','stroke-width':1,opacity:0.5}));
+      svg.appendChild(el('line', {x1:artLeft+artWidthPx+2,y1:artBotY,x2:artLeft+artWidthPx+10,y2:artBotY,stroke:'#a89070','stroke-width':1,opacity:0.5}));
+      svg.appendChild(txt(Math.round(h), {x:artLeft+artWidthPx+14,y:(artTopY+artBotY)/2+4,'font-size':9,fill:'#8c7a5e','font-family':'Noto Sans JP, sans-serif'}));
+    }
+  }
+
+  // 入力変化で再描画
+  document.getElementById('artH').addEventListener('input', drawDiagram);
+  document.getElementById('artW').addEventListener('input', drawDiagram);
+
+  // 初期描画
+  drawTicks();
+  drawLockIcon();
+  drawDiagram();
+</script>
+</body>
+</html>
