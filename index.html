@@ -7,6 +7,9 @@
   <meta name="apple-mobile-web-app-status-bar-style" content="default" />
   <meta name="apple-mobile-web-app-title" content="センター計算機" />
   <title>センター計算機</title>
+  <!-- アプリアイコン -->
+  <link rel="apple-touch-icon" href="icon.svg" />
+  <link rel="icon" href="icon.svg" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@300;400;500;700&display=swap" rel="stylesheet" />
   <style>
@@ -70,8 +73,8 @@
       cursor: pointer;
     }
     input[type=range]:disabled { opacity: 0.5; cursor: not-allowed; accent-color: #c0b8a8; }
-    .tick-wrap { position: relative; margin-top: 4px; height: 16px; }
-    .tick-ends { display: flex; justify-content: space-between; font-size: 10px; color: #c0b8a8; }
+    .tick-wrap { position: relative; margin-top: 4px; height: 28px; margin-left: 0; margin-right: 0; }
+    .tick-ends { display: flex; justify-content: space-between; font-size: 10px; color: #c0b8a8; padding: 4px 10px 0; }
     .tick { position: absolute; top: 0; transform: translateX(-50%); display: flex; flex-direction: column; align-items: center; pointer-events: none; }
     .tick-mark { width: 1.5px; height: 5px; background: #c0b8a8; opacity: 0.7; }
     .tick-mark.active { width: 2px; height: 8px; background: #8c7a5e; opacity: 1; }
@@ -110,9 +113,8 @@
           </button>
         </div>
       </div>
-      <input type="range" id="slider" min="1300" max="1600" value="1450" oninput="onSlider(this.value)" />
+      <input type="range" id="slider" min="1250" max="1650" value="1450" oninput="onSlider(this.value)" />
       <div class="tick-wrap">
-        <div class="tick-ends"><span>1300</span><span>1600</span></div>
         <div id="ticks"></div>
       </div>
       <div class="lock-msg" id="lockMsg" style="display:none">🔒 ロック中 — タップして解除</div>
@@ -126,7 +128,7 @@
   const MARGIN_RIGHT = 90;
   const REAL_RANGE = 2400;
   const BG = "#f7f4ef";
-  const SNAP_POINTS = [1300,1350,1400,1450,1500,1550,1600];
+  const SNAP_POINTS = [1250,1300,1350,1400,1450,1500,1550,1600,1650];
   const SNAP_RANGE = 8;
 
   let eyeLevel = 1450;
@@ -136,16 +138,35 @@
 
   function drawTicks() {
     const wrap = document.getElementById('ticks');
+    const slider = document.getElementById('slider');
+    const min = 1250, max = 1650;
     wrap.innerHTML = '';
+
+    // スライダーの実際の幅からつまみ分を引いてトラック幅を計算
+    const sliderRect = slider.getBoundingClientRect();
+    const thumbSize = 20; // iOSのつまみ幅
+    const trackWidth = sliderRect.width - thumbSize;
+    const trackStart = thumbSize / 2;
+
     SNAP_POINTS.forEach(p => {
-      const pct = (p - 1300) / 300 * 100;
-      const isActive = eyeLevel === p;
+      const pct = (p - min) / (max - min);
+      const leftPx = trackStart + pct * trackWidth;
       const d = document.createElement('div');
       d.className = 'tick';
-      d.style.left = pct + '%';
+      d.style.left = leftPx + 'px';
+      const isActive = eyeLevel === p;
       const mark = document.createElement('div');
       mark.className = 'tick-mark' + (isActive ? ' active' : '');
       d.appendChild(mark);
+      // 両端と1450にラベルを追加
+      if (p === 1250 || p === 1650 || p === 1450) {
+        const label = document.createElement('span');
+        label.style.fontSize = '10px';
+        label.style.color = '#c0b8a8';
+        label.style.marginTop = '3px';
+        label.textContent = p;
+        d.appendChild(label);
+      }
       wrap.appendChild(d);
     });
   }
@@ -194,13 +215,24 @@
     const topHeight = eyeLevel + h / 2;
     const bottomHeight = eyeLevel - h / 2;
 
-    const artScale = DRAW_H / REAL_RANGE;
-    const artHeightPx = h * artScale;
-    const artWidthPx = Math.min(w * artScale, WALL_W - MARGIN_RIGHT - 60);
+    // REAL_RANGEは作品サイズのみで決定（スライダーは影響させない）
+    const maxTop = 1650 + h / 2;
+    const REAL_RANGE = Math.max(2400, maxTop * 1.1);
+    const toYd = (mm) => DRAW_H - (mm / REAL_RANGE) * DRAW_H;
+
+    const maxWidth = WALL_W - MARGIN_RIGHT - 60;
+    const scaleW = maxWidth / Math.max(w, 1);
+    const scaleH = DRAW_H / REAL_RANGE;
+    const artScale = Math.min(scaleH, scaleW);
+
+    const artWidthPx = w * artScale;
     const artLeft = (WALL_W - artWidthPx) / 2;
-    const artTopY = toY(topHeight);
-    const artBotY = toY(bottomHeight);
-    const eyeY = toY(eyeLevel);
+
+    // 作品の表示位置はtoYdで正確に計算
+    const artTopY = toYd(topHeight);
+    const artBotY = toYd(bottomHeight);
+    const artHeightPx = artBotY - artTopY;
+    const eyeY = toYd(eyeLevel);
 
     const ns = 'http://www.w3.org/2000/svg';
     const svg = document.getElementById('diagram');
@@ -270,9 +302,12 @@
   document.getElementById('artW').addEventListener('input', drawDiagram);
 
   // 初期描画
-  drawTicks();
-  drawLockIcon();
-  drawDiagram();
+  window.addEventListener('resize', () => { drawTicks(); });
+  setTimeout(() => {
+    drawTicks();
+    drawLockIcon();
+    drawDiagram();
+  }, 100);
 </script>
 </body>
 </html>
