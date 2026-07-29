@@ -10,20 +10,51 @@
   <!-- アプリアイコン -->
   <link rel="apple-touch-icon" href="icon.svg" />
   <link rel="icon" href="icon.svg" />
-  <link rel="preconnect" href="https://fonts.googleapis.com" />
-  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@300;400;500;700&display=swap" rel="stylesheet" />
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body {
       background: #f7f4ef;
-      font-family: 'Noto Sans JP', sans-serif;
+      font-family: -apple-system, BlinkMacSystemFont, 'Hiragino Sans', sans-serif;
       min-height: 100vh;
       display: flex;
       justify-content: center;
-      padding: 32px 20px;
+      padding: 32px 20px 90px;
       -webkit-tap-highlight-color: transparent;
     }
-    .container { width: 100%; max-width: 440px; }
+    /* タブバー */
+    .tab-bar {
+      position: fixed;
+      bottom: 0; left: 0; right: 0;
+      height: 70px;
+      background: #fff;
+      border-top: 1px solid #e8e2d8;
+      display: flex;
+      justify-content: space-around;
+      align-items: center;
+      z-index: 100;
+      padding-bottom: env(safe-area-inset-bottom);
+    }
+    .tab-item {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 4px;
+      cursor: pointer;
+      padding: 8px 0;
+      border: none;
+      background: none;
+      color: #c0b8a8;
+      font-family: -apple-system, BlinkMacSystemFont, 'Hiragino Sans', sans-serif;
+      font-size: 10px;
+      transition: color 0.2s;
+    }
+    .tab-item.active { color: #8c7a5e; }
+    .tab-item svg { width: 22px; height: 22px; }
+    /* ページ */
+    .page { display: none; width: 100%; max-width: 440px; }
+    .page.active { display: block; }
     h1 { font-size: 24px; font-weight: 700; color: #2c2820; text-align: center; margin-bottom: 28px; }
     .svg-wrap { margin-bottom: 20px; }
     .svg-wrap svg { display: block; width: 100%; }
@@ -42,7 +73,7 @@
       width: 100%;
       padding: 10px 14px;
       font-size: 18px;
-      font-family: 'Noto Sans JP', sans-serif;
+      font-family: -apple-system, BlinkMacSystemFont, 'Hiragino Sans', sans-serif;
       border: 1.5px solid #e8e2d8;
       border-radius: 12px;
       outline: none;
@@ -82,8 +113,10 @@
   </style>
 </head>
 <body>
-<div class="container">
-  <h1>センター計算機</h1>
+<!-- 計算機ページ -->
+<div class="page active" id="page-calc">
+  <div style="width:100%;max-width:440px;">
+  <h1>センター計算</h1>
 
   <div class="svg-wrap">
     <svg id="diagram" viewBox="0 0 380 430"></svg>
@@ -93,11 +126,11 @@
     <div class="row">
       <div class="col">
         <label>高さ(H) <span>mm</span></label>
-        <input type="number" id="artH" value="600" inputmode="numeric" />
+        <input type="number" id="artH" value="600" inputmode="numeric" oninput="drawDiagram()" />
       </div>
       <div class="col">
         <label>幅(W) <span>mm（任意）</span></label>
-        <input type="number" id="artW" value="450" inputmode="numeric" />
+        <input type="number" id="artW" value="450" inputmode="numeric" oninput="drawDiagram()" />
       </div>
     </div>
 
@@ -120,9 +153,324 @@
       <div class="lock-msg" id="lockMsg" style="display:none">🔒 ロック中 — タップして解除</div>
     </div>
   </div>
+  </div>
 </div>
 
+<!-- ドッコページ -->
+<div class="page" id="page-dokko">
+  <div style="width:100%;max-width:440px;">
+    <h1>ドッコ計算</h1>
+
+    <!-- 作品図 -->
+    <div style="margin-bottom:16px;">
+      <svg id="dokko-diagram" width="100%" viewBox="0 0 380 320" style="display:block;"></svg>
+    </div>
+
+    <!-- 入力 -->
+    <div class="card">
+      <!-- 結果 -->
+      <div id="dk-result" style="margin-bottom:20px;padding:12px 20px;background:#2c2820;border-radius:16px;text-align:center;">
+        <div style="font-size:11px;color:#8c7a5e;letter-spacing:0.15em;margin-bottom:4px;">ドッコ位置（床から）</div>
+        <div id="dk-result-val" style="font-size:32px;font-weight:300;color:#f7f4ef;line-height:1;">—</div>
+        <div style="font-size:12px;color:#8c7a5e;margin-top:2px;">mm</div>
+      </div>
+
+      <label style="display:block;font-size:12px;color:#7a7060;margin-bottom:6px;">
+        作品上部からドッコまでの距離 <span style="color:#c0b8a8;font-size:10px;">mm</span>
+      </label>
+      <input type="number" id="dk-offset" inputmode="numeric" placeholder="例：50"
+        oninput="calcDokko()"
+        onfocus="this.style.borderColor='#8c7a5e'"
+        onblur="this.style.borderColor='#e8e2d8'"
+      />
+    </div>
+
+  </div>
+</div>
+
+<!-- 間隔ページ -->
+<div class="page" id="page-spacing">
+  <div style="width:100%;max-width:440px;">
+    <h1>作品間隔</h1>
+
+    <!-- 図（常時表示） -->
+    <div style="margin-bottom:16px;">
+      <svg id="spacing-diagram" width="100%" viewBox="0 0 380 160" style="display:block;"></svg>
+    </div>
+
+    <!-- 入力 -->
+    <div class="card">
+      <div class="row">
+        <div class="col">
+          <label>作品の幅 <span>mm</span></label>
+          <input type="number" id="sp-art-w" inputmode="numeric" value="450"
+            oninput="calcSpacing()"
+            onfocus="this.style.borderColor='#8c7a5e'"
+            onblur="this.style.borderColor='#e8e2d8'" />
+        </div>
+        <div class="col">
+          <label>作品の高さ <span style="color:#c0b8a8;font-size:10px;">mm（任意）</span></label>
+          <input type="number" id="sp-art-h" inputmode="numeric" value="600"
+            oninput="calcSpacing()"
+            onfocus="this.style.borderColor='#8c7a5e'"
+            onblur="this.style.borderColor='#e8e2d8'" />
+        </div>
+      </div>
+      <div class="row">
+        <div class="col">
+          <label>壁の幅 <span>mm</span></label>
+          <input type="number" id="sp-wall" inputmode="numeric" value="3000"
+            oninput="calcSpacing()"
+            onfocus="this.style.borderColor='#8c7a5e'"
+            onblur="this.style.borderColor='#e8e2d8'" />
+        </div>
+        <div class="col"></div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- 間隔2ページ -->
+<div class="page" id="page-spacing2">
+  <div style="width:100%;max-width:440px;">
+    <h1>複数の作品間隔</h1>
+
+    <!-- 図（常時表示） -->
+    <div style="margin-bottom:16px;">
+      <svg id="sp2-diagram" width="100%" viewBox="0 0 380 160" style="display:block;"></svg>
+    </div>
+
+    <!-- 入力：基本 -->
+    <div class="card" style="margin-bottom:12px;">
+      <div class="row">
+        <div class="col">
+          <label>壁の幅 <span>mm</span></label>
+          <input type="number" id="sp2-wall" inputmode="numeric" value="3000"
+            oninput="calcSpacing2()"
+            onfocus="this.style.borderColor='#8c7a5e'"
+            onblur="this.style.borderColor='#e8e2d8'" />
+        </div>
+        <div class="col">
+          <label>作品数</label>
+          <input type="number" id="sp2-count" inputmode="numeric" value="3" min="1" max="10"
+            oninput="updateSp2Inputs()"
+            onfocus="this.style.borderColor='#8c7a5e'"
+            onblur="this.style.borderColor='#e8e2d8'" />
+        </div>
+      </div>
+      <div class="row">
+        <div class="col">
+          <label>壁の余白(左) <span>mm</span></label>
+          <input type="number" id="sp2-margin-l" inputmode="numeric" value="300"
+            oninput="onMarginChange('l')"
+            onfocus="this.style.borderColor='#8c7a5e'"
+            onblur="this.style.borderColor='#e8e2d8'" />
+        </div>
+        <div class="col">
+          <label>壁の余白(右) <span>mm</span></label>
+          <input type="number" id="sp2-margin-r" inputmode="numeric" value="300"
+            oninput="onMarginChange('r')"
+            onfocus="this.style.borderColor='#8c7a5e'"
+            onblur="this.style.borderColor='#e8e2d8'" />
+        </div>
+      </div>
+      <div style="display:flex;justify-content:center;gap:8px;margin-top:8px;">
+        <button id="sp2-margin-lock" onclick="toggleMarginLock()" style="
+          display:flex;align-items:center;gap:6px;
+          background:#faf8f4;border:1.5px solid #e0d8cc;border-radius:10px;
+          cursor:pointer;padding:6px 14px;
+          font-size:11px;color:#8c7a5e;font-family:-apple-system,Hiragino Sans,sans-serif;
+          transition:all 0.2s;
+        ">
+          <svg id="sp2-margin-lock-icon" width="13" height="15" viewBox="0 0 14 16" fill="none"></svg>
+          <span id="sp2-margin-lock-label">左右連動</span>
+        </button>
+        <button id="sp2-sync-btn" onclick="syncMarginToGap()" style="
+          display:flex;align-items:center;gap:6px;
+          background:#8c7a5e;border:1.5px solid #8c7a5e;border-radius:10px;
+          cursor:pointer;padding:6px 14px;
+          font-size:11px;color:#f7f4ef;font-family:-apple-system,Hiragino Sans,sans-serif;
+          transition:all 0.2s;
+        ">
+          <span>均等な間隔へ</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- 作品ごとの入力（動的生成） -->
+    <div id="sp2-art-inputs"></div>
+
+  </div>
+</div>
+
+<!-- タブバー -->
+<nav class="tab-bar">
+  <button class="tab-item active" onclick="switchTab('calc')" id="tab-calc">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round">
+      <rect x="7" y="6" width="10" height="12" rx="1"/>
+      <line x1="1" y1="12" x2="23" y2="12" stroke-dasharray="2.5,2.5"/>
+    </svg>
+    センター
+  </button>
+  <button class="tab-item" onclick="switchTab('dokko')" id="tab-dokko">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round">
+      <!-- 木の板 -->
+      <rect x="2" y="9" width="20" height="6" rx="1.5"/>
+      <!-- ビス2点（ドット） -->
+      <circle cx="8" cy="12" r="1.5" fill="currentColor" stroke="none"/>
+      <circle cx="16" cy="12" r="1.5" fill="currentColor" stroke="none"/>
+    </svg>
+    ドッコ
+  </button>
+  <button class="tab-item" onclick="switchTab('spacing')" id="tab-spacing">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round">
+      <rect x="8" y="6" width="8" height="12" rx="1"/>
+      <line x1="2" y1="12" x2="8" y2="12"/>
+      <line x1="16" y1="12" x2="22" y2="12"/>
+    </svg>
+    間隔
+  </button>
+  <button class="tab-item" onclick="switchTab('spacing2')" id="tab-spacing2">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round">
+      <rect x="1" y="6" width="5" height="12" rx="1"/>
+      <rect x="9.5" y="6" width="5" height="12" rx="1"/>
+      <rect x="18" y="6" width="5" height="12" rx="1"/>
+      <line x1="6" y1="12" x2="9.5" y2="12"/>
+      <line x1="14.5" y1="12" x2="18" y2="12"/>
+    </svg>
+    複数間隔
+  </button>
+</nav>
+
 <script>
+  function switchTab(name) {
+    document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+    document.querySelectorAll('.tab-item').forEach(t => t.classList.remove('active'));
+    document.getElementById('page-' + name).classList.add('active');
+    document.getElementById('tab-' + name).classList.add('active');
+    if (name === 'calc') { setTimeout(() => { drawTicks(); drawDiagram(); }, 50); }
+    if (name === 'dokko') { syncDokko(); }
+    if (name === 'spacing') { setTimeout(() => { calcSpacing(); }, 50); }
+    if (name === 'spacing2') { setTimeout(() => { updateSp2Inputs(); }, 50); }
+  }
+
+  function syncDokko() {
+    if (dokkoOffset !== null) {
+      document.getElementById('dk-offset').value = dokkoOffset;
+    }
+    calcDokko();
+  }
+
+  let dokkoOffset = null;
+
+  function calcDokko() {
+    const h = parseFloat(document.getElementById('artH').value) || 600;
+    const top = eyeLevel + h / 2;
+    const offset = parseFloat(document.getElementById('dk-offset').value);
+    // 入力値を記憶
+    dokkoOffset = isNaN(offset) ? null : offset;
+    if (dokkoOffset === null) {
+      document.getElementById('dk-result-val').textContent = '—';
+      drawDokkodiagram(null);
+      return;
+    }
+    const dokkoPos = top - dokkoOffset;
+    document.getElementById('dk-result-val').textContent = Math.round(dokkoPos);
+    drawDokkodiagram(dokkoPos);
+  }
+
+  function drawDokkodiagram(dokkoPos) {
+    const W = 380, H = 300;
+    const h = parseFloat(document.getElementById('artH').value) || 600;
+    const w = parseFloat(document.getElementById('artW').value) || h * 0.75;
+
+    const ns = 'http://www.w3.org/2000/svg';
+    const svg = document.getElementById('dokko-diagram');
+    svg.innerHTML = '';
+    svg.setAttribute('viewBox', `0 0 ${W} ${H}`);
+
+    function el(tag, attrs) {
+      const e = document.createElementNS(ns, tag);
+      Object.entries(attrs).forEach(([k,v]) => e.setAttribute(k,v));
+      return e;
+    }
+    function txt(content, attrs) {
+      const e = document.createElementNS(ns, 'text');
+      Object.entries(attrs).forEach(([k,v]) => e.setAttribute(k,v));
+      e.textContent = content;
+      return e;
+    }
+
+    // 縦横比を維持してSVGいっぱいに表示（寸法線のスペース確保）
+    const margin = 16;
+    const marginTop = 28;    // 作品上部ラベル用
+    const marginBottom = 30; // 幅の寸法線用
+    const marginRight = 40;  // 高さの寸法線用
+    const marginLeft = 55;   // センターラベル用
+    const ratio = w / h;
+    let frameW, frameH;
+    if (ratio >= (W - marginLeft - marginRight) / (H - marginTop - marginBottom)) {
+      frameW = W - marginLeft - marginRight;
+      frameH = frameW / ratio;
+    } else {
+      frameH = H - marginTop - marginBottom;
+      frameW = frameH * ratio;
+    }
+    const frameX = marginLeft + (W - marginLeft - marginRight - frameW) / 2;
+    const frameY = marginTop + (H - marginTop - marginBottom - frameH) / 2;
+
+    // 背景
+    svg.appendChild(el('rect', {x:0,y:0,width:W,height:H,fill:'#f7f4ef'}));
+
+    // 額縁
+    svg.appendChild(el('rect', {x:frameX+2,y:frameY+2,width:frameW,height:frameH,fill:'rgba(0,0,0,0.06)'}));
+    svg.appendChild(el('rect', {x:frameX,y:frameY,width:frameW,height:frameH,fill:'#c8b89a',stroke:'#8c7a5e','stroke-width':3}));
+    svg.appendChild(el('rect', {x:frameX+8,y:frameY+8,width:frameW-16,height:frameH-16,fill:'#a08060'}));
+
+    // 作品上部（右上に表示）
+    const top = eyeLevel + h / 2;
+    svg.appendChild(txt(`作品上部  ${Math.round(top)}`, {
+      x: W - 8, y: 18,
+      'font-size': 11, fill: '#5a4a30',
+      'font-family': '-apple-system,Hiragino Sans,sans-serif',
+      'font-weight': 'bold', 'text-anchor': 'end'
+    }));
+
+    // 作品高さ（右横）
+    svg.appendChild(el('line', {x1:frameX+frameW+6,y1:frameY,x2:frameX+frameW+6,y2:frameY+frameH,stroke:'#a89070','stroke-width':1,opacity:0.5}));
+    svg.appendChild(el('line', {x1:frameX+frameW+2,y1:frameY,x2:frameX+frameW+10,y2:frameY,stroke:'#a89070','stroke-width':1,opacity:0.5}));
+    svg.appendChild(el('line', {x1:frameX+frameW+2,y1:frameY+frameH,x2:frameX+frameW+10,y2:frameY+frameH,stroke:'#a89070','stroke-width':1,opacity:0.5}));
+    svg.appendChild(txt(Math.round(h), {x:frameX+frameW+14,y:(frameY+frameY+frameH)/2+4,'font-size':9,fill:'#8c7a5e','font-family':'-apple-system,Hiragino Sans,sans-serif'}));
+
+    // 作品幅（下）
+    svg.appendChild(el('line', {x1:frameX,y1:frameY+frameH+8,x2:frameX+frameW,y2:frameY+frameH+8,stroke:'#a89070','stroke-width':1,opacity:0.5}));
+    svg.appendChild(el('line', {x1:frameX,y1:frameY+frameH+4,x2:frameX,y2:frameY+frameH+12,stroke:'#a89070','stroke-width':1,opacity:0.5}));
+    svg.appendChild(el('line', {x1:frameX+frameW,y1:frameY+frameH+4,x2:frameX+frameW,y2:frameY+frameH+12,stroke:'#a89070','stroke-width':1,opacity:0.5}));
+    svg.appendChild(txt(Math.round(w), {x:frameX+frameW/2,y:frameY+frameH+22,'font-size':9,fill:'#8c7a5e','font-family':'-apple-system,Hiragino Sans,sans-serif','text-anchor':'middle'}));
+
+    // センターY（額縁内の中央）
+    const eyeYinFrame = frameY + frameH / 2;
+
+    // センターライン（額縁の左外から額縁左端まで）
+    svg.appendChild(el('line', {x1:0,y1:eyeYinFrame,x2:frameX,y2:eyeYinFrame,stroke:'#c0392b','stroke-width':1.5,'stroke-dasharray':'6,4',opacity:0.7}));
+    svg.appendChild(txt(eyeLevel, {x:4,y:eyeYinFrame-4,'font-size':11,fill:'#c0392b','font-family':'-apple-system,Hiragino Sans,sans-serif','font-weight':'bold',opacity:0.9}));
+
+    // ドッコ
+    if (dokkoPos !== null) {
+      const offset = parseFloat(document.getElementById('dk-offset').value) || 0;
+      const dokkoRatio = offset / h;
+      const dokkoYinFrame = frameY + frameH * dokkoRatio;
+      svg.appendChild(el('line', {x1:frameX+8,y1:dokkoYinFrame,x2:frameX+frameW-8,y2:dokkoYinFrame,stroke:'#2c6e49','stroke-width':2,'stroke-dasharray':'4,4',opacity:0.85}));
+      svg.appendChild(txt(Math.round(dokkoPos), {
+        x: frameX+frameW/2, y: dokkoYinFrame+16,
+        'font-size':12, fill:'#2c6e49',
+        'font-family':'-apple-system,Hiragino Sans,sans-serif',
+        'font-weight':'bold', 'text-anchor':'middle'
+      }));
+    }
+  }
+
   const WALL_W = 380;
   const DRAW_H = 400;
   const MARGIN_RIGHT = 90;
@@ -221,18 +569,20 @@
     const toYd = (mm) => DRAW_H - (mm / REAL_RANGE) * DRAW_H;
 
     const maxWidth = WALL_W - MARGIN_RIGHT - 60;
-    const scaleW = maxWidth / Math.max(w, 1);
+
+    // 高さ・幅どちらも同じスケールで計算（縦横比を完全に維持）
     const scaleH = DRAW_H / REAL_RANGE;
+    const scaleW = maxWidth / Math.max(w, 1);
     const artScale = Math.min(scaleH, scaleW);
 
+    const artHeightPx = h * artScale;
     const artWidthPx = w * artScale;
     const artLeft = (WALL_W - artWidthPx) / 2;
 
-    // 作品の表示位置はtoYdで正確に計算
-    const artTopY = toYd(topHeight);
-    const artBotY = toYd(bottomHeight);
-    const artHeightPx = artBotY - artTopY;
-    const eyeY = toYd(eyeLevel);
+    // 表示位置：床(toYd(0)=DRAW_H)を基準に作品下部から配置
+    const artBotY = toYd(bottomHeight < 0 ? 0 : bottomHeight);
+    const artTopY = artBotY - artHeightPx;
+    const eyeY = artTopY + artHeightPx / 2;
 
     const ns = 'http://www.w3.org/2000/svg';
     const svg = document.getElementById('diagram');
@@ -266,14 +616,14 @@
 
     // 目線ライン
     svg.appendChild(el('line', {x1:0,y1:eyeY,x2:artLeft,y2:eyeY,stroke:'#c0392b','stroke-width':1.5,'stroke-dasharray':'6,4',opacity:0.7}));
-    svg.appendChild(txt(eyeLevel, {x:4,y:eyeY-4,'font-size':11,fill:'#c0392b','font-family':'Noto Sans JP, sans-serif','text-anchor':'start','font-weight':'bold',opacity:0.9}));
+    svg.appendChild(txt(eyeLevel, {x:4,y:eyeY-4,'font-size':11,fill:'#c0392b','font-family':'-apple-system,Hiragino Sans,sans-serif','text-anchor':'start','font-weight':'bold',opacity:0.9}));
 
     // 作品幅（下）
     if (artWidthPx > 20) {
       svg.appendChild(el('line', {x1:artLeft,y1:artBotY+8,x2:artLeft+artWidthPx,y2:artBotY+8,stroke:'#a89070','stroke-width':1,opacity:0.5}));
       svg.appendChild(el('line', {x1:artLeft,y1:artBotY+4,x2:artLeft,y2:artBotY+12,stroke:'#a89070','stroke-width':1,opacity:0.5}));
       svg.appendChild(el('line', {x1:artLeft+artWidthPx,y1:artBotY+4,x2:artLeft+artWidthPx,y2:artBotY+12,stroke:'#a89070','stroke-width':1,opacity:0.5}));
-      svg.appendChild(txt(Math.round(w), {x:artLeft+artWidthPx/2,y:artBotY+22,'font-size':9,fill:'#8c7a5e','font-family':'Noto Sans JP, sans-serif','text-anchor':'middle'}));
+      svg.appendChild(txt(Math.round(w), {x:artLeft+artWidthPx/2,y:artBotY+22,'font-size':9,fill:'#8c7a5e','font-family':'-apple-system,Hiragino Sans,sans-serif','text-anchor':'middle'}));
     }
 
     // 右側寸法線
@@ -281,11 +631,11 @@
       svg.appendChild(el('line', {x1:WALL_W-16,y1:artTopY,x2:WALL_W-16,y2:DRAW_H,stroke:'#8c7a5e','stroke-width':1.2,opacity:0.6}));
       svg.appendChild(el('line', {x1:WALL_W-23,y1:artTopY,x2:WALL_W-9,y2:artTopY,stroke:'#8c7a5e','stroke-width':1.2,opacity:0.6}));
       svg.appendChild(el('line', {x1:WALL_W-23,y1:DRAW_H,x2:WALL_W-9,y2:DRAW_H,stroke:'#8c7a5e','stroke-width':1.2,opacity:0.6}));
-      svg.appendChild(txt('作品上部', {x:WALL_W-42,y:artTopY-10,'font-size':9,fill:'#8c7a5e','font-family':'Noto Sans JP, sans-serif','text-anchor':'middle'}));
-      svg.appendChild(txt(Math.round(topHeight), {x:WALL_W-42,y:artTopY+3,'font-size':11,fill:'#5a4a30','font-family':'Noto Sans JP, sans-serif','font-weight':'bold','text-anchor':'middle'}));
+      svg.appendChild(txt('作品上部', {x:WALL_W-42,y:artTopY-10,'font-size':9,fill:'#8c7a5e','font-family':'-apple-system,Hiragino Sans,sans-serif','text-anchor':'middle'}));
+      svg.appendChild(txt(Math.round(topHeight), {x:WALL_W-42,y:artTopY+3,'font-size':11,fill:'#5a4a30','font-family':'-apple-system,Hiragino Sans,sans-serif','font-weight':'bold','text-anchor':'middle'}));
       svg.appendChild(el('line', {x1:WALL_W-23,y1:artBotY,x2:WALL_W-9,y2:artBotY,stroke:'#8c7a5e','stroke-width':1.2,opacity:0.6}));
-      svg.appendChild(txt('作品下部', {x:WALL_W-42,y:artBotY+14,'font-size':9,fill:'#8c7a5e','font-family':'Noto Sans JP, sans-serif','text-anchor':'middle'}));
-      svg.appendChild(txt(Math.round(bottomHeight), {x:WALL_W-42,y:artBotY+27,'font-size':11,fill:'#5a4a30','font-family':'Noto Sans JP, sans-serif','font-weight':'bold','text-anchor':'middle'}));
+      svg.appendChild(txt('作品下部', {x:WALL_W-42,y:artBotY+14,'font-size':9,fill:'#8c7a5e','font-family':'-apple-system,Hiragino Sans,sans-serif','text-anchor':'middle'}));
+      svg.appendChild(txt(Math.round(bottomHeight), {x:WALL_W-42,y:artBotY+27,'font-size':11,fill:'#5a4a30','font-family':'-apple-system,Hiragino Sans,sans-serif','font-weight':'bold','text-anchor':'middle'}));
     }
 
     // 作品高さ（右横）
@@ -293,21 +643,411 @@
       svg.appendChild(el('line', {x1:artLeft+artWidthPx+6,y1:artTopY,x2:artLeft+artWidthPx+6,y2:artBotY,stroke:'#a89070','stroke-width':1,opacity:0.5}));
       svg.appendChild(el('line', {x1:artLeft+artWidthPx+2,y1:artTopY,x2:artLeft+artWidthPx+10,y2:artTopY,stroke:'#a89070','stroke-width':1,opacity:0.5}));
       svg.appendChild(el('line', {x1:artLeft+artWidthPx+2,y1:artBotY,x2:artLeft+artWidthPx+10,y2:artBotY,stroke:'#a89070','stroke-width':1,opacity:0.5}));
-      svg.appendChild(txt(Math.round(h), {x:artLeft+artWidthPx+14,y:(artTopY+artBotY)/2+4,'font-size':9,fill:'#8c7a5e','font-family':'Noto Sans JP, sans-serif'}));
+      svg.appendChild(txt(Math.round(h), {x:artLeft+artWidthPx+14,y:(artTopY+artBotY)/2+4,'font-size':9,fill:'#8c7a5e','font-family':'-apple-system,Hiragino Sans,sans-serif'}));
     }
   }
 
-  // 入力変化で再描画
-  document.getElementById('artH').addEventListener('input', drawDiagram);
-  document.getElementById('artW').addEventListener('input', drawDiagram);
+  function calcSpacing() {
+    const wall = parseFloat(document.getElementById('sp-wall').value);
+    const artW = parseFloat(document.getElementById('sp-art-w').value);
+    const artHInput = parseFloat(document.getElementById('sp-art-h').value);
+    const artH = isNaN(artHInput) ? null : artHInput;
+
+    if (!wall || !artW) {
+      drawSpacingDiagram(null);
+      return;
+    }
+
+    const margin = (wall - artW) / 2;
+    drawSpacingDiagram({ wall, artW, artH, margin });
+  }
+
+  function drawSpacingDiagram(data) {
+    const W = 380, H = 150;
+    const ns = 'http://www.w3.org/2000/svg';
+    const svg = document.getElementById('spacing-diagram');
+    if (!svg) return;
+    svg.innerHTML = '';
+    svg.setAttribute('viewBox', `0 0 ${W} ${H}`);
+
+    function el(tag, attrs) {
+      const e = document.createElementNS(ns, tag);
+      Object.entries(attrs).forEach(([k,v]) => e.setAttribute(k,v));
+      return e;
+    }
+    function txt(content, attrs) {
+      const e = document.createElementNS(ns, 'text');
+      Object.entries(attrs).forEach(([k,v]) => e.setAttribute(k,v));
+      e.textContent = content;
+      return e;
+    }
+
+    svg.appendChild(el('rect', {x:0,y:0,width:W,height:H,fill:'#f7f4ef'}));
+    if (!data) return;
+
+    const { wall, artW, artH, margin } = data;
+
+    if (margin < 0) {
+      svg.appendChild(txt('作品が壁に収まりません', {x:W/2,y:H/2,'font-size':12,fill:'#c0392b','font-family':'-apple-system,Hiragino Sans,sans-serif','text-anchor':'middle'}));
+      return;
+    }
+
+    // 壁・作品・余白すべてを同じスケールで計算
+    const drawW = W - 40;
+    const offsetX = 20;
+    const ratio = artH ? artH / artW : 0.8;
+    const topMargin = 30; // 寸法ラベル用スペース
+    const maxH = H - topMargin - 10;
+
+    // 壁の幅を基準にスケールを決定（余白・作品は必ず比例）
+    const scaleByW = drawW / wall;
+    const artHpxNatural = artW * scaleByW * ratio;
+    // 高さがSVGをはみ出す場合だけ縮小
+    const heightLimit = artHpxNatural > maxH ? maxH / artHpxNatural : 1;
+    const drawScale = scaleByW * heightLimit;
+
+    const finalFrameW = artW * drawScale;
+    const finalFrameH = finalFrameW * ratio;
+    const marginPx = margin * drawScale;
+    // 作品を常にSVG中央に配置
+    const artX = (W - finalFrameW) / 2;
+    const artX2 = artX + finalFrameW;
+    // 壁の端はスケールに基づいて作品位置から逆算
+    const wallLeftX = artX - marginPx;
+    const wallRightX = artX2 + marginPx;
+    // frameYはtopMargin以下に収める
+    const frameY = topMargin + (maxH - finalFrameH) / 2;
+    const arrowY = frameY + finalFrameH / 2;
+
+    // 壁の端
+    svg.appendChild(el('line', {x1:wallLeftX,y1:frameY-6,x2:wallLeftX,y2:frameY+finalFrameH+6,stroke:'#8c7a5e','stroke-width':2.5}));
+    svg.appendChild(el('line', {x1:wallRightX,y1:frameY-6,x2:wallRightX,y2:frameY+finalFrameH+6,stroke:'#8c7a5e','stroke-width':2.5}));
+
+    // 作品
+    svg.appendChild(el('rect', {x:artX+1,y:frameY+1,width:finalFrameW,height:finalFrameH,fill:'rgba(0,0,0,0.05)'}));
+    svg.appendChild(el('rect', {x:artX,y:frameY,width:finalFrameW,height:finalFrameH,fill:'#c8b89a',stroke:'#8c7a5e','stroke-width':1.5}));
+    if (finalFrameW > 12 && finalFrameH > 12) {
+      svg.appendChild(el('rect', {x:artX+5,y:frameY+5,width:finalFrameW-10,height:finalFrameH-10,fill:'#f7f4ef'}));
+    }
+
+    // 作品幅の寸法線（作品の上）
+    const dimLineY = frameY - 8;
+    svg.appendChild(el('line', {x1:artX,y1:dimLineY,x2:artX2,y2:dimLineY,stroke:'#a89070','stroke-width':1,opacity:0.7}));
+    svg.appendChild(el('line', {x1:artX,y1:dimLineY-3,x2:artX,y2:dimLineY+3,stroke:'#a89070','stroke-width':1,opacity:0.7}));
+    svg.appendChild(el('line', {x1:artX2,y1:dimLineY-3,x2:artX2,y2:dimLineY+3,stroke:'#a89070','stroke-width':1,opacity:0.7}));
+    svg.appendChild(txt(`(${Math.round(artW/2)})`, {x:(artX+artX2)/2,y:dimLineY-14,'font-size':8,fill:'#b0a898','font-family':'-apple-system,Hiragino Sans,sans-serif','text-anchor':'middle'}));
+    svg.appendChild(txt(Math.round(artW), {x:(artX+artX2)/2,y:dimLineY-4,'font-size':9,fill:'#8c7a5e','font-family':'-apple-system,Hiragino Sans,sans-serif','text-anchor':'middle'}));
+
+    // 左矢印
+    svg.appendChild(el('line', {x1:wallLeftX,y1:arrowY,x2:artX,y2:arrowY,stroke:'#8c7a5e','stroke-width':1.2}));
+    svg.appendChild(el('line', {x1:wallLeftX,y1:arrowY-4,x2:wallLeftX,y2:arrowY+4,stroke:'#8c7a5e','stroke-width':1.2}));
+    svg.appendChild(el('line', {x1:artX,y1:arrowY-4,x2:artX,y2:arrowY+4,stroke:'#8c7a5e','stroke-width':1.2}));
+    svg.appendChild(txt(Math.round(margin), {x:(wallLeftX+artX)/2,y:arrowY-6,'font-size':10,fill:'#5a4a30','font-family':'-apple-system,Hiragino Sans,sans-serif','text-anchor':'middle'}));
+
+    // 右矢印
+    svg.appendChild(el('line', {x1:artX2,y1:arrowY,x2:wallRightX,y2:arrowY,stroke:'#8c7a5e','stroke-width':1.2}));
+    svg.appendChild(el('line', {x1:artX2,y1:arrowY-4,x2:artX2,y2:arrowY+4,stroke:'#8c7a5e','stroke-width':1.2}));
+    svg.appendChild(el('line', {x1:wallRightX,y1:arrowY-4,x2:wallRightX,y2:arrowY+4,stroke:'#8c7a5e','stroke-width':1.2}));
+    svg.appendChild(txt(Math.round(margin), {x:(artX2+wallRightX)/2,y:arrowY-6,'font-size':10,fill:'#5a4a30','font-family':'-apple-system,Hiragino Sans,sans-serif','text-anchor':'middle'}));
+  }
+
+  let sp2MarginLocked = true;
+
+  function syncMarginToGap() {
+    const wall = parseFloat(document.getElementById('sp2-wall').value);
+    const count = parseInt(document.getElementById('sp2-count').value) || 0;
+
+    const arts = [];
+    for (let i = 0; i < count; i++) {
+      const wEl = document.getElementById(`sp2-art-w-${i}`);
+      if (!wEl) break;
+      arts.push({ w: parseFloat(wEl.value) || 0 });
+    }
+    if (!wall || arts.length === 0) return;
+
+    const totalArtW = arts.reduce((s, a) => s + a.w, 0);
+    const numGaps = arts.length + 1;
+    const evenGap = (wall - totalArtW) / numGaps;
+    if (evenGap < 0) return;
+
+    document.getElementById('sp2-margin-l').value = Math.round(evenGap);
+    document.getElementById('sp2-margin-r').value = Math.round(evenGap);
+    calcSpacing2(true);
+    setSyncBtnState(true);
+  }
+
+  function setSyncBtnState(synced) {
+    const btn = document.getElementById('sp2-sync-btn');
+    if (!btn) return;
+    if (synced) {
+      btn.style.background = '#e8e2d8';
+      btn.style.borderColor = '#e8e2d8';
+      btn.style.color = '#b0a898';
+    } else {
+      btn.style.background = '#8c7a5e';
+      btn.style.borderColor = '#8c7a5e';
+      btn.style.color = '#f7f4ef';
+    }
+  }
+
+  function toggleMarginLock() {
+    sp2MarginLocked = !sp2MarginLocked;
+    const icon = document.getElementById('sp2-margin-lock-icon');
+    const label = document.getElementById('sp2-margin-lock-label');
+    const btn = document.getElementById('sp2-margin-lock');
+    label.textContent = sp2MarginLocked ? '左右連動' : '個別設定';
+    if (sp2MarginLocked) {
+      btn.style.background = '#8c7a5e';
+      btn.style.borderColor = '#8c7a5e';
+      btn.style.color = '#f7f4ef';
+      icon.innerHTML = `
+        <rect x="1" y="7" width="12" height="8" rx="2" fill="#f7f4ef"/>
+        <path d="M4 7V5a3 3 0 016 0v2" stroke="#f7f4ef" stroke-width="1.8" stroke-linecap="round" fill="none"/>
+        <circle cx="7" cy="11" r="1.2" fill="#8c7a5e"/>`;
+      // ロックしたら左の値に右を合わせる
+      const l = document.getElementById('sp2-margin-l').value;
+      document.getElementById('sp2-margin-r').value = l;
+      calcSpacing2();
+    } else {
+      btn.style.background = '#faf8f4';
+      btn.style.borderColor = '#e0d8cc';
+      btn.style.color = '#8c7a5e';
+      icon.innerHTML = `
+        <rect x="1" y="7" width="12" height="8" rx="2" fill="#c0b8a8"/>
+        <path d="M4 7V5a3 3 0 016 0" stroke="#c0b8a8" stroke-width="1.8" stroke-linecap="round" fill="none"/>
+        <circle cx="7" cy="11" r="1.2" fill="#f7f4ef"/>`;
+    }
+  }
+
+  function onMarginChange(side) {
+    if (sp2MarginLocked) {
+      const val = document.getElementById(`sp2-margin-${side}`).value;
+      const otherSide = side === 'l' ? 'r' : 'l';
+      document.getElementById(`sp2-margin-${otherSide}`).value = val;
+    }
+    calcSpacing2();
+  }
+
+  function updateSp2Inputs() {
+    const count = parseInt(document.getElementById('sp2-count').value) || 0;
+    const container = document.getElementById('sp2-art-inputs');
+    container.innerHTML = '';
+    const iStyle = 'width:100%;padding:10px 14px;font-size:18px;font-family:-apple-system,Hiragino Sans,sans-serif;border:1.5px solid #e8e2d8;border-radius:12px;outline:none;background:#faf8f4;color:#2c2820;box-sizing:border-box;';
+    for (let i = 0; i < count; i++) {
+      const div = document.createElement('div');
+      div.className = 'card';
+      div.style.marginBottom = '12px';
+      div.innerHTML = `
+        <div style="font-size:12px;color:#8c7a5e;margin-bottom:10px;font-weight:500;">作品 ${i + 1}</div>
+        <div class="row">
+          <div class="col">
+            <label>幅 <span>mm</span></label>
+            <input type="number" id="sp2-art-w-${i}" inputmode="numeric" value="450"
+              oninput="calcSpacing2()" style="${iStyle}" />
+          </div>
+          <div class="col">
+            <label>高さ <span style="color:#c0b8a8;font-size:10px;">mm（任意）</span></label>
+            <input type="number" id="sp2-art-h-${i}" inputmode="numeric" value="600"
+              oninput="calcSpacing2()" style="${iStyle}" />
+          </div>
+        </div>`;
+      container.appendChild(div);
+    }
+    calcSpacing2();
+  }
+
+  function calcSpacing2(fromSync) {
+    if (!fromSync) setSyncBtnState(false);
+    const wall = parseFloat(document.getElementById('sp2-wall').value);
+    const count = parseInt(document.getElementById('sp2-count').value) || 0;
+    const marginL = parseFloat(document.getElementById('sp2-margin-l').value) || 0;
+    const marginR = parseFloat(document.getElementById('sp2-margin-r').value) || 0;
+
+    const arts = [];
+    for (let i = 0; i < count; i++) {
+      const wEl = document.getElementById(`sp2-art-w-${i}`);
+      const hEl = document.getElementById(`sp2-art-h-${i}`);
+      if (!wEl) break;
+      const w = parseFloat(wEl.value) || 0;
+      const h = parseFloat(hEl.value) || 0;
+      arts.push({ w, h });
+    }
+
+    if (!wall || arts.length === 0 || arts.some(a => a.w === 0)) {
+      drawSp2Diagram(null);
+      return;
+    }
+
+    const totalArtW = arts.reduce((s, a) => s + a.w, 0);
+    // 左右の余白を固定して、作品間の間隔を逆算
+    const remaining = wall - marginL - marginR - totalArtW;
+    const gap = arts.length > 1 ? remaining / (arts.length - 1) : remaining;
+
+    drawSp2Diagram({ wall, arts, gap, marginL, marginR });
+  }
+
+  function drawSp2Diagram(data) {
+    const W = 380, H = 160;
+    const ns = 'http://www.w3.org/2000/svg';
+    const svg = document.getElementById('sp2-diagram');
+    if (!svg) return;
+    svg.innerHTML = '';
+    svg.setAttribute('viewBox', `0 0 ${W} ${H}`);
+
+    function el(tag, attrs) {
+      const e = document.createElementNS(ns, tag);
+      Object.entries(attrs).forEach(([k,v]) => e.setAttribute(k,v));
+      return e;
+    }
+    function txt(content, attrs) {
+      const e = document.createElementNS(ns, 'text');
+      Object.entries(attrs).forEach(([k,v]) => e.setAttribute(k,v));
+      e.textContent = content;
+      return e;
+    }
+
+    svg.appendChild(el('rect', {x:0,y:0,width:W,height:H,fill:'#f7f4ef'}));
+    if (!data) return;
+
+    const { wall, arts, gap, marginL, marginR } = data;
+    const totalArtW = arts.reduce((s, a) => s + a.w, 0);
+    const totalW = marginL + marginR + totalArtW + gap * (arts.length - 1);
+
+    if (marginL < 0 || marginR < 0 || gap < 0) {
+      svg.appendChild(txt('作品が壁に収まりません', {x:W/2,y:H/2,'font-size':12,fill:'#c0392b','font-family':'-apple-system,Hiragino Sans,sans-serif','text-anchor':'middle'}));
+      return;
+    }
+
+    const topMargin = 26;
+    const bottomSpace = 30;
+    const maxH = H - topMargin - bottomSpace;
+    const scale = (W - 40) / wall;
+
+    // 最大高さの作品でスケールを決定
+    const maxArtH = Math.max(...arts.map(a => a.h || a.w * 0.8));
+    const maxArtHpx = maxArtH * scale;
+    const heightLimit = maxArtHpx > maxH ? maxH / maxArtHpx : 1;
+    const drawScale = scale * heightLimit;
+
+    // 実際に使う最大高さ（描画後の実サイズ）を再計算し、SVG全体の中央に配置
+    const actualMaxArtHpx = maxArtH * drawScale;
+    const contentTop = (H - actualMaxArtHpx) / 2;
+    const contentBottom = contentTop + actualMaxArtHpx;
+
+    const totalArtWpx = arts.reduce((s,a) => s + a.w * drawScale, 0);
+    const totalGapPx = gap * drawScale * (arts.length - 1);
+    const marginLPx = marginL * drawScale;
+    const marginRPx = marginR * drawScale;
+    const totalContentW = marginLPx + marginRPx + totalArtWpx + totalGapPx;
+    const wallLeftX = (W - totalContentW) / 2;
+    const wallRightX = wallLeftX + totalContentW;
+
+    // 各作品を描画
+    let curX = wallLeftX + marginLPx;
+    arts.forEach((art, i) => {
+      const artWpx = art.w * drawScale;
+      const ratio = art.h ? art.h / art.w : 0.8;
+      const artHpx = artWpx * ratio;
+      // センター揃え（contentTop〜contentBottomの中央に配置）
+      const frameY = (contentTop + contentBottom) / 2 - artHpx / 2;
+
+      // 額縁
+      svg.appendChild(el('rect', {x:curX+1,y:frameY+1,width:artWpx,height:artHpx,fill:'rgba(0,0,0,0.05)'}));
+      svg.appendChild(el('rect', {x:curX,y:frameY,width:artWpx,height:artHpx,fill:'#c8b89a',stroke:'#8c7a5e','stroke-width':1.5}));
+      if (artWpx > 10 && artHpx > 10) {
+        svg.appendChild(el('rect', {x:curX+4,y:frameY+4,width:artWpx-8,height:artHpx-8,fill:'#f7f4ef'}));
+      }
+
+      // 作品番号
+      svg.appendChild(txt(`${i+1}`, {x:curX+artWpx/2,y:frameY+artHpx/2+4,'font-size':10,fill:'#8c7a5e','font-family':'-apple-system,Hiragino Sans,sans-serif','text-anchor':'middle'}));
+
+      // 作品幅の寸法線（上）
+      const dimY = frameY - 8;
+      svg.appendChild(el('line', {x1:curX,y1:dimY,x2:curX+artWpx,y2:dimY,stroke:'#a89070','stroke-width':1,opacity:0.7}));
+      svg.appendChild(el('line', {x1:curX,y1:dimY-3,x2:curX,y2:dimY+3,stroke:'#a89070','stroke-width':1,opacity:0.7}));
+      svg.appendChild(el('line', {x1:curX+artWpx,y1:dimY-3,x2:curX+artWpx,y2:dimY+3,stroke:'#a89070','stroke-width':1,opacity:0.7}));
+      svg.appendChild(txt(Math.round(art.w), {x:curX+artWpx/2,y:dimY-4,'font-size':8,fill:'#8c7a5e','font-family':'-apple-system,Hiragino Sans,sans-serif','text-anchor':'middle'}));
+
+      // 間隔の矢印（作品間）
+      if (i < arts.length - 1 && gap > 0) {
+        const gapX1 = curX + artWpx;
+        const gapX2 = gapX1 + gap * drawScale;
+        const arrowY = (contentTop + contentBottom) / 2;
+        const gapPx = gap * drawScale;
+        svg.appendChild(el('line', {x1:gapX1,y1:arrowY,x2:gapX2,y2:arrowY,stroke:'#8c7a5e','stroke-width':1,'stroke-dasharray':'3,2'}));
+        svg.appendChild(el('line', {x1:gapX1,y1:arrowY-4,x2:gapX1,y2:arrowY+4,stroke:'#8c7a5e','stroke-width':1}));
+        svg.appendChild(el('line', {x1:gapX2,y1:arrowY-4,x2:gapX2,y2:arrowY+4,stroke:'#8c7a5e','stroke-width':1}));
+        // 間隔が狭く数字が作品と被る場合は、隣接する作品の上部寸法線と同じ高さに表示
+        if (gapPx < 24) {
+          const nextArt = arts[i + 1];
+          const nextArtWpx = nextArt.w * drawScale;
+          const nextRatio = nextArt.h ? nextArt.h / nextArt.w : 0.8;
+          const nextArtHpx = nextArtWpx * nextRatio;
+          const nextFrameY = (contentTop + contentBottom) / 2 - nextArtHpx / 2;
+          const higherFrameY = Math.min(frameY, nextFrameY);
+          svg.appendChild(txt(Math.round(gap), {x:(gapX1+gapX2)/2,y:higherFrameY-4,'font-size':9,fill:'#5a4a30','font-family':'-apple-system,Hiragino Sans,sans-serif','text-anchor':'middle'}));
+        } else {
+          svg.appendChild(txt(Math.round(gap), {x:(gapX1+gapX2)/2,y:arrowY-6,'font-size':9,fill:'#5a4a30','font-family':'-apple-system,Hiragino Sans,sans-serif','text-anchor':'middle'}));
+        }
+      }
+
+      curX += artWpx;
+      if (i < arts.length - 1) {
+        curX += gap * drawScale;
+      }
+    });
+
+    // 壁の端
+    svg.appendChild(el('line', {x1:wallLeftX,y1:contentTop-6,x2:wallLeftX,y2:contentBottom+20,stroke:'#8c7a5e','stroke-width':2.5}));
+    svg.appendChild(el('line', {x1:wallRightX,y1:contentTop-6,x2:wallRightX,y2:contentBottom+20,stroke:'#8c7a5e','stroke-width':2.5}));
+
+    // 余白の矢印（左）
+    const arrowY = (contentTop + contentBottom) / 2;
+    const firstArtX = wallLeftX + marginLPx;
+    svg.appendChild(el('line', {x1:wallLeftX,y1:arrowY,x2:firstArtX,y2:arrowY,stroke:'#8c7a5e','stroke-width':1.2}));
+    svg.appendChild(el('line', {x1:wallLeftX,y1:arrowY-4,x2:wallLeftX,y2:arrowY+4,stroke:'#8c7a5e','stroke-width':1.2}));
+    svg.appendChild(el('line', {x1:firstArtX,y1:arrowY-4,x2:firstArtX,y2:arrowY+4,stroke:'#8c7a5e','stroke-width':1.2}));
+    svg.appendChild(txt(Math.round(marginL), {x:(wallLeftX+firstArtX)/2,y:arrowY-6,'font-size':9,fill:'#5a4a30','font-family':'-apple-system,Hiragino Sans,sans-serif','text-anchor':'middle'}));
+
+    // 余白の矢印（右）
+    const lastArtX2 = curX;
+    svg.appendChild(el('line', {x1:lastArtX2,y1:arrowY,x2:wallRightX,y2:arrowY,stroke:'#8c7a5e','stroke-width':1.2}));
+    svg.appendChild(el('line', {x1:lastArtX2,y1:arrowY-4,x2:lastArtX2,y2:arrowY+4,stroke:'#8c7a5e','stroke-width':1.2}));
+    svg.appendChild(el('line', {x1:wallRightX,y1:arrowY-4,x2:wallRightX,y2:arrowY+4,stroke:'#8c7a5e','stroke-width':1.2}));
+    svg.appendChild(txt(Math.round(marginR), {x:(lastArtX2+wallRightX)/2,y:arrowY-6,'font-size':9,fill:'#5a4a30','font-family':'-apple-system,Hiragino Sans,sans-serif','text-anchor':'middle'}));
+
+    // 左端の作品〜右端の作品の合計寸法（作品の下）
+    const totalDimY = contentBottom + 8;
+    const totalSpanMm = totalArtW + gap * (arts.length - 1);
+    svg.appendChild(el('line', {x1:firstArtX,y1:totalDimY,x2:lastArtX2,y2:totalDimY,stroke:'#a89070','stroke-width':1,opacity:0.7}));
+    svg.appendChild(el('line', {x1:firstArtX,y1:totalDimY-3,x2:firstArtX,y2:totalDimY+3,stroke:'#a89070','stroke-width':1,opacity:0.7}));
+    svg.appendChild(el('line', {x1:lastArtX2,y1:totalDimY-3,x2:lastArtX2,y2:totalDimY+3,stroke:'#a89070','stroke-width':1,opacity:0.7}));
+    svg.appendChild(txt(Math.round(totalSpanMm), {x:(firstArtX+lastArtX2)/2,y:totalDimY+11,'font-size':9,fill:'#8c7a5e','font-family':'-apple-system,Hiragino Sans,sans-serif','text-anchor':'middle'}));
+  }
 
   // 初期描画
   window.addEventListener('resize', () => { drawTicks(); });
-  setTimeout(() => {
+  function initApp() {
     drawTicks();
+    const icon = document.getElementById('sp2-margin-lock-icon');
+    const btn = document.getElementById('sp2-margin-lock');
+    if (icon && btn) {
+      btn.style.background = '#8c7a5e';
+      btn.style.borderColor = '#8c7a5e';
+      btn.style.color = '#f7f4ef';
+      icon.innerHTML = `
+        <rect x="1" y="7" width="12" height="8" rx="2" fill="#f7f4ef"/>
+        <path d="M4 7V5a3 3 0 016 0v2" stroke="#f7f4ef" stroke-width="1.8" stroke-linecap="round" fill="none"/>
+        <circle cx="7" cy="11" r="1.2" fill="#8c7a5e"/>`;
+    }
     drawLockIcon();
     drawDiagram();
-  }, 100);
+  }
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', () => requestAnimationFrame(initApp));
+  } else {
+    requestAnimationFrame(initApp);
+  }
 </script>
 </body>
 </html>
